@@ -62,6 +62,7 @@ button.subtle { background: transparent; }
   will-change: transform; cursor: default;
 }
 .card.anim-off { transition: none; }
+.card.slow { transition: transform .38s ease-in-out; }
 .card.movable { cursor: grab; }
 .card.dragging { cursor: grabbing; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
 .card .f { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
