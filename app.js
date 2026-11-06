@@ -1,46 +1,19 @@
 (function () {
   'use strict';
   var E = window.KlondikeEngine, S = window.KlondikeSolver;
-  var SUITS = ['♠', '♥', '♦', '♣'];
-  var RANKS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  var SUITS = window.Common.SUITS;
   var GEN_NODES = 20000;   // search budget per candidate deal
   var HINT_NODES = 60000;
 
   var $ = function (id) { return document.getElementById(id); };
   var board = $('board');
 
-  // ---------- storage (safe) ----------
-  function load(key, def) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
-  function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { } }
-
-  // ---------- solver worker ----------
-  var worker = null, reqId = 0, pending = {};
-  try {
-    worker = new Worker('solver.js');
-    worker.onmessage = function (e) { var cb = pending[e.data.id]; delete pending[e.data.id]; if (cb) cb(e.data.result); };
-    worker.onerror = function () { worker = null; for (var k in pending) { var cb = pending[k]; delete pending[k]; cb(undefined); } };
-  } catch (e) { worker = null; }
-
-  function runSolver(msg) {
-    return new Promise(function (resolve) {
-      var local = function () {
-        setTimeout(function () {
-          if (msg.cmd === 'find') resolve(S.findWinnable(msg.seed, msg.draw, msg.maxNodes, msg.maxTries));
-          else resolve(S.solve(msg.state, msg.draw, msg.maxNodes));
-        }, 0);
-      };
-      if (!worker) return local();
-      var id = ++reqId;
-      msg.id = id;
-      pending[id] = function (r) { if (r === undefined) local(); else resolve(r); };
-      worker.postMessage(msg);
-    });
-  }
-
-  function randomSeed() {
-    try { var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0]; }
-    catch (e) { return Math.floor(Math.random() * 4294967296); }
-  }
+  var C = window.Common;
+  var load = C.load, save = C.save, toast = C.toast, fmtTime = C.fmtTime, setPos = C.setPos, randomSeed = C.randomSeed;
+  var solver = new C.SolverClient('solver.js', function (msg) {
+    return msg.cmd === 'find' ? S.findWinnable(msg.seed, msg.draw, msg.maxNodes, msg.maxTries) : S.solve(msg.state, msg.draw, msg.maxNodes);
+  });
+  function runSolver(msg) { return solver.run(msg); }
 
   function findDeal(seed, draw) {
     return runSolver({ cmd: 'find', seed: seed, draw: draw, maxNodes: GEN_NODES, maxTries: 500 });
@@ -91,15 +64,6 @@
 
   // ---------- DOM ----------
   var cardEls = [], slots = {};
-  function makeCard(id) {
-    var r = E.rankOf(id), s = E.suitOf(id);
-    var el = document.createElement('div');
-    el.className = 'card ' + (E.isRed(id) ? 'red' : 'black');
-    el.dataset.id = id;
-    var mid = r > 10 ? '<div class="mid face">' + RANKS[r] + '<i>' + SUITS[s] + '</i></div>' : '<div class="mid">' + SUITS[s] + '</div>';
-    el.innerHTML = '<div class="f"><div class="tl">' + RANKS[r] + '<small>' + SUITS[s] + '</small></div><div class="tr">' + SUITS[s] + '</div>' + mid + '</div>';
-    return el;
-  }
   function makeSlot(cls, text) {
     var el = document.createElement('div');
     el.className = 'slot ' + cls;
@@ -114,17 +78,12 @@
     for (var i = 0; i < 4; i++) slots.fnd.push(makeSlot('fnd', SUITS[i]));
     slots.tab = [];
     for (i = 0; i < 7; i++) slots.tab.push(makeSlot('tab', 'K'));
-    for (i = 0; i < 52; i++) { cardEls[i] = makeCard(i); board.appendChild(cardEls[i]); }
+    for (i = 0; i < 52; i++) { cardEls[i] = C.makeCard(i); board.appendChild(cardEls[i]); }
   }
 
   // where each card is right now
   var where = [];
   var pos = []; // [x,y,z]
-
-  function setPos(el, x, y, z) {
-    el.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-    el.style.zIndex = z;
-  }
 
   function render() {
     var i, j, el, c;
@@ -202,12 +161,6 @@
     el.classList.toggle('down', !faceUp);
   }
 
-  function fmtTime(sec) {
-    sec = Math.floor(sec);
-    var h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, s = sec % 60;
-    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
-  }
-
   function updateInfo() {
     $('dealNo').textContent = (game.draw === 3 ? '3枚引き' : '1枚引き') + ' #' + game.seed;
     $('moves').textContent = game.moves;
@@ -238,14 +191,6 @@
   }
 
   // ---------- game flow ----------
-  function toast(msg, ms) {
-    var t = $('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.classList.remove('show'); }, ms || 2600);
-  }
-
   function abandonCurrent() {
     // a started but unfinished game breaks the streak
     if (game && started && !finished) {
@@ -256,7 +201,7 @@
   }
 
   function startGame(seed, draw) {
-    stopFx();
+    C.stopFx();
     game = E.create(seed, draw);
     history = []; elapsed = 0; timerOn = false; started = false; finished = false; autoFinishing = false;
     clearHint();
@@ -367,8 +312,8 @@
     $('winText').innerHTML = '時間 <b>' + fmtTime(t) + '</b>　手数 <b>' + game.moves + '</b>' +
       (newBest ? '<br>ベストタイム更新！' : '') +
       '<br>連勝 ' + st.streak + '　勝利数 ' + st.won + ' / ' + st.played;
-    startFx();
-    setTimeout(function () { try { $('winDlg').showModal(); } catch (e) { $('winDlg').setAttribute('open', ''); } }, 900);
+    C.startFx();
+    setTimeout(function () { C.showDialog('winDlg'); }, 900);
   }
 
   // ---------- auto move on click ----------
@@ -397,12 +342,7 @@
     return false;
   }
 
-  function shake(cards) {
-    cards.forEach(function (c) {
-      var el = cardEls[c];
-      el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
-    });
-  }
+  function shake(cards) { C.shake(cards.map(function (c) { return cardEls[c]; })); }
 
   // ---------- drag ----------
   var drag = null;
@@ -515,32 +455,6 @@
       addHint(col.length ? cardEls[col[col.length - 1]] : slots.tab[m.to]);
     }
   }
-
-  // ---------- win effect ----------
-  var fx = $('fx'), fxCtx = fx.getContext('2d'), fxParts = [], fxRun = false;
-  function startFx() {
-    fx.width = window.innerWidth; fx.height = window.innerHeight;
-    fxParts = [];
-    var colors = ['#f0c541', '#ffffff', '#e8483b', '#4aa3ff', '#7ee08a'];
-    for (var i = 0; i < 160; i++) {
-      fxParts.push({ x: Math.random() * fx.width, y: -20 - Math.random() * fx.height * 0.6, vx: (Math.random() - 0.5) * 2,
-        vy: 2 + Math.random() * 3, r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3,
-        s: 6 + Math.random() * 6, c: colors[i % colors.length] });
-    }
-    fxRun = true;
-    var t0 = Date.now();
-    (function frame() {
-      if (!fxRun) return;
-      fxCtx.clearRect(0, 0, fx.width, fx.height);
-      fxParts.forEach(function (p) {
-        p.x += p.vx; p.y += p.vy; p.r += p.vr;
-        fxCtx.save(); fxCtx.translate(p.x, p.y); fxCtx.rotate(p.r);
-        fxCtx.fillStyle = p.c; fxCtx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); fxCtx.restore();
-      });
-      if (Date.now() - t0 < 6000) requestAnimationFrame(frame); else stopFx();
-    })();
-  }
-  function stopFx() { fxRun = false; fxCtx.clearRect(0, 0, fx.width, fx.height); }
 
   // ---------- menu / stats ----------
   function renderStats() {
