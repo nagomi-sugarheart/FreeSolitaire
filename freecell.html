@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>フリーセル - フリーソリティア</title>
+<meta name="description" content="無料で遊べるフリーセル。毎回その場で新しい配置を生成し、すべてクリア可能な配置だけを配ります。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <h1 class="logo">フリーソリティア</h1>
+  <nav class="games"><a href="index.html">クロンダイク</a><a href="freecell.html" class="on">フリーセル</a></nav>
+  <div class="info">
+    <span id="dealNo" title="ゲーム番号">#-</span>
+    <span>時間 <b id="time">0:00</b></span>
+    <span>手数 <b id="moves">0</b></span>
+  </div>
+  <nav class="actions">
+    <button id="btnNew" title="新しいゲーム (N)">新しいゲーム</button>
+    <button id="btnRestart" title="同じ配置で最初から">やり直す</button>
+    <button id="btnUndo" title="元に戻す (Ctrl+Z)">戻す</button>
+    <button id="btnHint" title="ヒント (H)">ヒント</button>
+    <button id="btnMenu" title="その他">…</button>
+  </nav>
+</header>
+
+<main id="board" aria-label="ゲーム盤"></main>
+<div id="toast" role="status"></div>
+
+<dialog id="menu">
+  <h2>メニュー</h2>
+  <div class="menu-row">
+    <label for="cardStyle">カードのデザイン</label>
+    <select id="cardStyle">
+      <option value="classic">クラシック（絵札あり）</option>
+      <option value="simple">シンプル（大きな文字で見やすい）</option>
+    </select>
+  </div>
+  <div class="menu-row">
+    <label for="seedInput">番号を指定して遊ぶ</label>
+    <div class="seed-form">
+      <input id="seedInput" type="number" min="0" max="4294967295" placeholder="0〜4294967295">
+      <button id="btnSeed">配る</button>
+    </div>
+  </div>
+  <h3>成績</h3>
+  <table class="stats">
+    <thead><tr><th></th><th>フリーセル</th></tr></thead>
+    <tbody id="statsBody"></tbody>
+  </table>
+  <h3>遊び方</h3>
+  <ul class="help">
+    <li>配置はその場でランダムに生成され、コンピュータが解けることを確認した配置だけが配られます（約43億通り）。</li>
+    <li>左上の4つがフリーセル（カードを1枚ずつ置ける場所）、右上が組札です。</li>
+    <li>場の列には「数字が1つ小さく、色が違う」カードを重ねられます。空いた列には何でも置けます。</li>
+    <li>並んだカードはまとめて動かせます（動かせる枚数＝(空きセル数+1)×2<sup>空き列数</sup>）。</li>
+    <li>ドラッグで移動、クリックで置ける場所へ自動移動。不要になったカードは自動で組札へ移ります。</li>
+    <li>キー操作：N 新しいゲーム ／ Ctrl+Z・Backspace 戻す ／ H ヒント</li>
+  </ul>
+  <div class="menu-foot">
+    <button id="btnResetStats" class="subtle">成績をリセット</button>
+    <button id="btnCloseMenu">閉じる</button>
+  </div>
+</dialog>
+
+<dialog id="winDlg">
+  <h2>クリア！</h2>
+  <p id="winText"></p>
+  <div class="menu-foot">
+    <button id="btnWinNew" class="primary">次のゲーム</button>
+  </div>
+</dialog>
+<canvas id="fx"></canvas>
+
+<script src="common.js"></script>
+<script src="fc-solver.js"></script>
+<script src="freecell.js"></script>
+</body>
+</html>

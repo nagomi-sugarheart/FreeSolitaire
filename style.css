@@ -1,0 +1,129 @@
+:root {
+  --felt: #1f6b3a;
+  --felt-dark: #154d29;
+  --bar: #0f3a1f;
+  --bar-text: #e9f3ec;
+  --card: #fdfdfb;
+  --red: #c8102e;
+  --black: #1b1b1b;
+  --slot: rgba(255,255,255,.14);
+  --hl: #ffd34d;
+  --cw: 90px;
+  --ch: 128px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-dark) 100%) fixed;
+  color: var(--bar-text);
+  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
+  overflow-x: hidden;
+  user-select: none; -webkit-user-select: none;
+}
+.bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 16px; background: var(--bar); box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.logo { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: .05em; }
+.games { display: flex; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; overflow: hidden; }
+.games a { color: var(--bar-text); text-decoration: none; font-size: 14px; padding: 5px 12px; }
+.games a:hover { background: rgba(255,255,255,.15); }
+.games a.on { background: rgba(255,255,255,.25); font-weight: 700; }
+.info { display: flex; gap: 16px; font-size: 14px; opacity: .95; font-variant-numeric: tabular-nums; }
+.info b { font-weight: 600; }
+#dealNo { opacity: .75; }
+.actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+button, select {
+  font: inherit; font-size: 14px; color: var(--bar-text); background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 6px 12px; cursor: pointer;
+}
+button:hover, select:hover { background: rgba(255,255,255,.2); }
+button:disabled { opacity: .4; cursor: default; }
+select option { color: #000; }
+button.primary { background: #f0c541; color: #222; border-color: #f0c541; font-weight: 700; }
+button.subtle { background: transparent; }
+
+#board { position: relative; margin: 0 auto; touch-action: none; }
+.slot {
+  position: absolute; width: var(--cw); height: var(--ch); border-radius: calc(var(--cw) * .08);
+  border: 2px solid var(--slot); display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.25); font-size: calc(var(--cw) * .45);
+}
+.slot.stock { cursor: pointer; }
+.slot.cell { border-style: dashed; }
+.slot.stock::after { content: "↻"; }
+.slot.stock.done::after { content: "✕"; font-size: .6em; }
+
+.card {
+  position: absolute; left: 0; top: 0; width: var(--cw); height: var(--ch);
+  border-radius: calc(var(--cw) * .08); background: var(--card);
+  box-shadow: 0 1px 2px rgba(0,0,0,.35);
+  transition: transform .18s ease-out;
+  will-change: transform; cursor: default;
+}
+.card.anim-off { transition: none; }
+.card.movable { cursor: grab; }
+.card.dragging { cursor: grabbing; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+.card .f { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.card.red .f { color: var(--red); }
+.card.black .f { color: var(--black); }
+.card .tl { position: absolute; left: 6%; top: 3%; line-height: .95; font-weight: 700; text-align: center;
+  font-size: calc(var(--cw) * .24); font-family: Georgia, "Times New Roman", serif; }
+.card .tl small { display: block; font-size: .85em; }
+.card .tr { position: absolute; right: 7%; top: 4%; font-size: calc(var(--cw) * .2); }
+.card .mid { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; font-size: calc(var(--cw) * .5); line-height: 1; }
+.card .mid.face { font-family: Georgia, serif; font-weight: 700; font-size: calc(var(--cw) * .42); }
+.card .mid.face i { font-style: normal; font-size: .8em; }
+.card .art { display: none; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.classic .card .art { display: block; }
+.classic .card .simple { display: none; }
+.classic .card { border-radius: calc(var(--cw) * .05); }
+.card.down { background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 4px, transparent 4px 8px),
+    linear-gradient(135deg, #2f5fb3, #1d3f80);
+  border: 3px solid #fff; cursor: default; }
+.card.down .f { display: none; }
+.card.down.stockcard { cursor: pointer; }
+.card.hint { box-shadow: 0 0 0 3px var(--hl), 0 0 14px 3px var(--hl); }
+.slot.hint { border-color: var(--hl); box-shadow: 0 0 14px 3px var(--hl); }
+.card.shake { animation: shake .3s; }
+@keyframes shake { 25% { margin-left: -5px; } 75% { margin-left: 5px; } }
+
+#toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+  background: rgba(0,0,0,.8); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+dialog {
+  border: none; border-radius: 12px; padding: 20px 24px; max-width: min(520px, calc(100% - 32px));
+  background: #fff; color: #222; box-shadow: 0 10px 40px rgba(0,0,0,.4);
+}
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog h2 { margin: 0 0 12px; font-size: 20px; }
+dialog h3 { margin: 18px 0 8px; font-size: 15px; }
+dialog button, dialog input { color: #222; background: #f2f2f2; border: 1px solid #ccc; }
+dialog button:hover { background: #e6e6e6; }
+dialog button.primary { background: #f0c541; border-color: #e0b530; }
+.menu-row { margin-bottom: 12px; }
+.menu-row select { color: #222; background: #f2f2f2; border: 1px solid #ccc; }
+.menu-row label { font-size: 14px; display: block; margin-bottom: 6px; }
+.seed-form { display: flex; gap: 6px; }
+.seed-form input { flex: 1; font: inherit; padding: 6px 8px; border-radius: 6px; min-width: 0; }
+.stats { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stats th, .stats td { padding: 4px 8px; border-bottom: 1px solid #eee; text-align: right; }
+.stats th:first-child, .stats td:first-child { text-align: left; }
+.help { font-size: 13px; line-height: 1.6; padding-left: 20px; margin: 0; color: #444; }
+.menu-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+#winDlg { text-align: center; }
+#winDlg .menu-foot { justify-content: center; }
+#winText { font-size: 15px; line-height: 1.7; }
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+
+@media (max-width: 700px) {
+  .bar { gap: 8px; padding: 6px 10px; }
+  .logo { font-size: 15px; }
+  .actions { margin-left: 0; }
+  button, select { padding: 5px 8px; font-size: 13px; }
+}
