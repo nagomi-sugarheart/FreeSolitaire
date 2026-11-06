@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>フリーソリティア</title>
+<meta name="description" content="無料で遊べるソリティア（クロンダイク）。毎回その場で新しい配置を生成し、すべてクリア可能な配置だけを配ります。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <h1 class="logo">フリーソリティア</h1>
+  <div class="info">
+    <span id="dealNo" title="ゲーム番号">#-</span>
+    <span>時間 <b id="time">0:00</b></span>
+    <span>手数 <b id="moves">0</b></span>
+  </div>
+  <nav class="actions">
+    <button id="btnNew" title="新しいゲーム (N)">新しいゲーム</button>
+    <button id="btnRestart" title="同じ配置で最初から">やり直す</button>
+    <button id="btnUndo" title="元に戻す (Ctrl+Z)">戻す</button>
+    <button id="btnHint" title="ヒント (H)">ヒント</button>
+    <select id="drawMode" title="めくる枚数">
+      <option value="1">1枚引き</option>
+      <option value="3">3枚引き</option>
+    </select>
+    <button id="btnMenu" title="その他">…</button>
+  </nav>
+</header>
+
+<main id="board" aria-label="ゲーム盤"></main>
+<div id="toast" role="status"></div>
+
+<dialog id="menu">
+  <h2>メニュー</h2>
+  <div class="menu-row">
+    <label for="seedInput">番号を指定して遊ぶ</label>
+    <div class="seed-form">
+      <input id="seedInput" type="number" min="0" max="4294967295" placeholder="0〜4294967295">
+      <button id="btnSeed">配る</button>
+    </div>
+  </div>
+  <h3>成績</h3>
+  <table class="stats">
+    <thead><tr><th></th><th>1枚引き</th><th>3枚引き</th></tr></thead>
+    <tbody id="statsBody"></tbody>
+  </table>
+  <h3>遊び方</h3>
+  <ul class="help">
+    <li>すべての配置はその場でランダムに生成され、コンピュータが解けることを確認した配置だけが配られます（約43億通り）。</li>
+    <li>カードはドラッグで移動。クリックすると置ける場所へ自動で移動します。</li>
+    <li>山札をクリックでめくります。山札が空のときクリックで戻します（回数無制限）。</li>
+    <li>キー操作：N 新しいゲーム ／ Ctrl+Z・Backspace 戻す ／ H ヒント ／ D・Space 山札をめくる</li>
+  </ul>
+  <div class="menu-foot">
+    <button id="btnResetStats" class="subtle">成績をリセット</button>
+    <button id="btnCloseMenu">閉じる</button>
+  </div>
+</dialog>
+
+<dialog id="winDlg">
+  <h2>クリア！</h2>
+  <p id="winText"></p>
+  <div class="menu-foot">
+    <button id="btnWinNew" class="primary">次のゲーム</button>
+  </div>
+</dialog>
+<canvas id="fx"></canvas>
+
+<script src="solver.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
