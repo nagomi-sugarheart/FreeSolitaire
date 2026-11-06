@@ -3,6 +3,7 @@
   'use strict';
   var SUITS = ['♠', '♥', '♦', '♣'];
   var RANKS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  var ARTRANK = ['', 'a', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'j', 'q', 'k'];
   var rankOf = function (c) { return (c % 13) + 1; };
   var suitOf = function (c) { return (c / 13) | 0; };
   var isRed = function (c) { var s = (c / 13) | 0; return s === 1 || s === 2; };
@@ -16,7 +17,8 @@
     el.className = 'card ' + (isRed(id) ? 'red' : 'black');
     el.dataset.id = id;
     var mid = r > 10 ? '<div class="mid face">' + RANKS[r] + '<i>' + SUITS[s] + '</i></div>' : '<div class="mid">' + SUITS[s] + '</div>';
-    el.innerHTML = '<div class="f"><div class="tl">' + RANKS[r] + '<small>' + SUITS[s] + '</small></div><div class="tr">' + SUITS[s] + '</div>' + mid + '</div>';
+    el.innerHTML = '<div class="f"><img class="art" src="cards/' + 'SHDC'[s] + ARTRANK[r] + '.svg" alt="' + RANKS[r] + SUITS[s] + '" draggable="false">' +
+      '<div class="simple"><div class="tl">' + RANKS[r] + '<small>' + SUITS[s] + '</small></div><div class="tr">' + SUITS[s] + '</div>' + mid + '</div></div>';
     return el;
   }
 
@@ -104,6 +106,19 @@
   function shake(els) {
     els.forEach(function (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); });
   }
+
+  // card design: 'classic' (illustrated SVG cards) or 'simple' (large text)
+  function applyCardStyle(v) {
+    document.documentElement.classList.toggle('classic', v !== 'simple');
+  }
+  var cardStyle = load('fs.cardStyle', 'classic');
+  applyCardStyle(cardStyle);
+  document.addEventListener('DOMContentLoaded', function () {
+    var sel = document.getElementById('cardStyle');
+    if (!sel) return;
+    sel.value = cardStyle;
+    sel.onchange = function () { cardStyle = sel.value; save('fs.cardStyle', cardStyle); applyCardStyle(cardStyle); };
+  });
 
   root.Common = {
     SUITS: SUITS, RANKS: RANKS, rankOf: rankOf, suitOf: suitOf, isRed: isRed,

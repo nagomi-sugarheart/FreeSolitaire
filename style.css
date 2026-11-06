@@ -74,6 +74,10 @@ button.subtle { background: transparent; }
 .card .mid { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; font-size: calc(var(--cw) * .5); line-height: 1; }
 .card .mid.face { font-family: Georgia, serif; font-weight: 700; font-size: calc(var(--cw) * .42); }
 .card .mid.face i { font-style: normal; font-size: .8em; }
+.card .art { display: none; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.classic .card .art { display: block; }
+.classic .card .simple { display: none; }
+.classic .card { border-radius: calc(var(--cw) * .05); }
 .card.down { background:
     repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 4px, transparent 4px 8px),
     linear-gradient(135deg, #2f5fb3, #1d3f80);
@@ -102,6 +106,8 @@ dialog h3 { margin: 18px 0 8px; font-size: 15px; }
 dialog button, dialog input { color: #222; background: #f2f2f2; border: 1px solid #ccc; }
 dialog button:hover { background: #e6e6e6; }
 dialog button.primary { background: #f0c541; border-color: #e0b530; }
+.menu-row { margin-bottom: 12px; }
+.menu-row select { color: #222; background: #f2f2f2; border: 1px solid #ccc; }
 .menu-row label { font-size: 14px; display: block; margin-bottom: 6px; }
 .seed-form { display: flex; gap: 6px; }
 .seed-form input { flex: 1; font: inherit; padding: 6px 8px; border-radius: 6px; min-width: 0; }
