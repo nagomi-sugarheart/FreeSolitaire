@@ -10,7 +10,7 @@
 
   var C = window.Common;
   var load = C.load, save = C.save, toast = C.toast, fmtTime = C.fmtTime, setPos = C.setPos, randomSeed = C.randomSeed;
-  var solver = new C.SolverClient('solver.js', function (msg) {
+  var solver = new C.SolverClient('solver.js?v=4', function (msg) {
     return msg.cmd === 'find' ? S.findWinnable(msg.seed, msg.draw, msg.maxNodes, msg.maxTries) : S.solve(msg.state, msg.draw, msg.maxNodes);
   });
   function runSolver(msg) { return solver.run(msg); }
