@@ -111,6 +111,13 @@
   function applyCardStyle(v) {
     document.documentElement.classList.toggle('classic', v !== 'simple');
   }
+  // block the right-click menu (it is easy to hit by mistake while playing); keep it in text boxes
+  document.addEventListener('contextmenu', function (e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('input, textarea')) return;
+    e.preventDefault();
+  });
+
   var cardStyle = load('fs.cardStyle', 'classic');
   applyCardStyle(cardStyle);
   document.addEventListener('DOMContentLoaded', function () {
