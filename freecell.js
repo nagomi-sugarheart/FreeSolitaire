@@ -8,7 +8,7 @@
   var board = $('board');
   var rankOf = F.rankOf, suitOf = F.suitOf;
 
-  var solver = new C.SolverClient('fc-solver.js', function (msg) {
+  var solver = new C.SolverClient('fc-solver.js?v=4', function (msg) {
     return msg.cmd === 'find' ? F.findWinnable(msg.seed, msg.maxNodes, msg.maxTries) : F.solve(msg.state, msg.maxNodes);
   });
   function findDeal(seed) { return solver.run({ cmd: 'find', seed: seed, maxNodes: GEN_NODES, maxTries: 200 }); }
