@@ -163,22 +163,59 @@
     game.moves++;
   }
 
-  function autoSafe() {
-    var moved = true;
-    while (moved) {
-      moved = false;
-      for (var i = 0; i < 4; i++) {
-        var c = game.cells[i];
-        if (c >= 0 && F.canFound(game, c) && F.isSafe(game, c)) { game.cells[i] = -1; game.fnd[suitOf(c)]++; moved = true; }
-      }
-      for (i = 0; i < 8; i++) {
-        var col = game.cols[i];
-        if (!col.length) continue;
-        c = col[col.length - 1];
-        if (F.canFound(game, c) && F.isSafe(game, c)) { col.pop(); game.fnd[suitOf(c)]++; moved = true; }
-      }
+  // ---------- automatic moves to the foundations (one card at a time) ----------
+  var AUTO_STEP_MS = 260;   // pause between automatic moves
+  var autoTimer = null;
+
+  // the next card that can safely go to a foundation, or null
+  function nextSafe() {
+    for (var i = 0; i < 4; i++) {
+      var c = game.cells[i];
+      if (c >= 0 && F.canFound(game, c) && F.isSafe(game, c)) return { type: 'cell', cell: i, card: c };
     }
+    for (i = 0; i < 8; i++) {
+      var col = game.cols[i];
+      if (col.length && F.canFound(game, col[col.length - 1]) && F.isSafe(game, col[col.length - 1])) return { type: 'col', col: i, idx: col.length - 1, card: col[col.length - 1] };
+    }
+    return null;
   }
+  function toFoundation(src) {
+    if (src.type === 'cell') game.cells[src.cell] = -1; else game.cols[src.col].pop();
+    game.fnd[suitOf(src.card)]++;
+  }
+  function glide(c) {
+    var el = cardEls[c];
+    el.classList.add('slow');
+    setTimeout(function () { el.classList.remove('slow'); }, 600);
+  }
+  // after automatic moves are done: win / auto finish / save
+  function afterAuto() {
+    render();
+    if (F.isWon(game)) onWin();
+    else if (allOrdered() && !autoFinishing) autoFinish();
+    persist();
+  }
+  function runAutoSafe() {
+    if (autoTimer) return;
+    if (!nextSafe()) return afterAuto();
+    autoTimer = setTimeout(function step() {
+      var src = nextSafe();
+      if (!src) { autoTimer = null; return afterAuto(); }
+      toFoundation(src);
+      glide(src.card);
+      render();
+      autoTimer = setTimeout(step, AUTO_STEP_MS);
+    }, AUTO_STEP_MS * 0.6);
+  }
+  // the player acts while automatic moves are pending: finish them instantly
+  function flushAuto() {
+    if (!autoTimer) return;
+    clearTimeout(autoTimer); autoTimer = null;
+    var src;
+    while ((src = nextSafe())) toFoundation(src);
+    afterAuto();
+  }
+  function cancelAuto() { if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; } }
 
   // every column is an ordered run -> the rest can be finished automatically
   function allOrdered() {
@@ -198,11 +235,9 @@
     applyMove(src, dst);
     clearHint();
     startTimerIfNeeded();
-    autoSafe();
     render();
-    if (F.isWon(game)) onWin();
-    else if (allOrdered() && !autoFinishing) autoFinish();
     persist();
+    runAutoSafe();
     return true;
   }
 
@@ -217,10 +252,12 @@
         if (col.length && F.canFound(game, col[col.length - 1]) && rankOf(col[col.length - 1]) < br) { br = rankOf(col[col.length - 1]); best = { type: 'col', col: i, idx: col.length - 1 }; }
       }
       if (!best) { autoFinishing = false; return; }
+      var card = best.type === 'cell' ? game.cells[best.cell] : game.cols[best.col][best.idx];
       applyMove(best, { type: 'fnd' });
+      glide(card);
       render();
       if (F.isWon(game)) { autoFinishing = false; return onWin(); }
-      setTimeout(step, 80);
+      setTimeout(step, AUTO_STEP_MS * 0.7);
     })();
   }
 
@@ -243,6 +280,7 @@
 
   function undo() {
     if (!history.length || finished || autoFinishing) return;
+    cancelAuto();
     game = history.pop();
     clearHint(); render(); persist();
   }
@@ -250,6 +288,7 @@
   // ---------- game flow ----------
   function startGame(seed) {
     C.stopFx();
+    cancelAuto();
     var d = F.deal(seed);
     game = { seed: seed >>> 0, cols: d.cols, cells: d.cells, fnd: d.fnd, moves: 0 };
     history = []; elapsed = 0; timerOn = false; started = false; finished = false; autoFinishing = false;
@@ -319,6 +358,8 @@
   var drag = null;
   board.addEventListener('pointerdown', function (e) {
     if (e.button !== 0 || finished || autoFinishing || !game) return;
+    flushAuto();
+    if (finished || autoFinishing) return;
     var el = e.target.closest('.card');
     if (!el) return;
     var c = +el.dataset.id, src = sourceOf(c);
@@ -378,6 +419,7 @@
   function addHint(el) { el.classList.add('hint'); el.dataset.hint = hintEls.length ? 'dst' : 'src'; hintEls.push(el); }
 
   function hint() {
+    flushAuto();
     if (finished || autoFinishing || hinting) return;
     clearHint();
     hinting = true;
@@ -462,6 +504,7 @@
     started = !!saved.started;
     if (started) { timerOn = true; lastTick = Date.now(); }
     render();
+    runAutoSafe();
     doPrefetch();
   } else {
     newGame();
