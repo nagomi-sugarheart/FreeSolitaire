@@ -86,14 +86,7 @@
 
   function isWon(g) { return g.fnd[0] === 13 && g.fnd[1] === 13 && g.fnd[2] === 13 && g.fnd[3] === 13; }
 
-  // everything face-up and talon empty -> can auto-finish
-  function canAutoFinish(g) {
-    if (g.stock.length || g.waste.length) return false;
-    for (var i = 0; i < 7; i++) if (g.hid[i]) return false;
-    return !isWon(g);
-  }
-
-  // next foundation move for auto finish: smallest rank tableau top
+  // next foundation move for auto finish: smallest rank among tableau tops and the waste top
   function nextFinishMove(g) {
     var best = null, bestRank = 99;
     for (var i = 0; i < 7; i++) {
@@ -102,14 +95,51 @@
       var c = col[col.length - 1];
       if (canFound(g, c) && rankOf(c) < bestRank) { bestRank = rankOf(c); best = { type: 'tab', col: i, idx: col.length - 1 }; }
     }
-    if (!best && g.waste.length && canFound(g, g.waste[g.waste.length - 1])) best = { type: 'waste' };
+    if (g.waste.length) {
+      var w = g.waste[g.waste.length - 1];
+      if (canFound(g, w) && rankOf(w) < bestRank) best = { type: 'waste' };
+    }
     return best;
   }
+
+  // one step of the automatic finish: a foundation move, or turning the stock
+  function finishStep(g) {
+    var mv = nextFinishMove(g);
+    if (mv) return { kind: 'fnd', src: mv };
+    if (g.stock.length || g.waste.length) return { kind: 'draw' };
+    return null;
+  }
+
+  // Simulate the automatic finish on a copy: true if it reaches a win.
+  // (Draw 1 always succeeds once all tableau cards are face up; draw 3 occasionally cannot.)
+  function finishWorks(g) {
+    var s = clone(g), idle = 0;
+    for (var guard = 0; guard < 5000; guard++) {
+      if (isWon(s)) return true;
+      var st = finishStep(s);
+      if (!st) return false;
+      if (st.kind === 'fnd') { doMove(s, st.src, { type: 'fnd' }); idle = 0; }
+      else {
+        drawStock(s);
+        // two full passes through the stock without progress -> stuck
+        if (++idle > 2 * (Math.ceil((s.stock.length + s.waste.length) / s.draw) + 1)) return false;
+      }
+    }
+    return false;
+  }
+
+  // every tableau card is face up (the stock may still have cards)
+  function allFaceUp(g) {
+    if (isWon(g)) return false;
+    for (var i = 0; i < 7; i++) if (g.hid[i]) return false;
+    return true;
+  }
+  function canAutoFinish(g) { return allFaceUp(g) && finishWorks(g); }
 
   var api = {
     create: create, clone: clone, toSolverState: toSolverState, drawStock: drawStock,
     canMove: canMove, doMove: doMove, cardsAt: cardsAt, isWon: isWon, canFound: canFound,
-    canAutoFinish: canAutoFinish, nextFinishMove: nextFinishMove, rankOf: rankOf, suitOf: suitOf, isRed: isRed
+    canAutoFinish: canAutoFinish, nextFinishMove: nextFinishMove, finishStep: finishStep, allFaceUp: allFaceUp, finishWorks: finishWorks, rankOf: rankOf, suitOf: suitOf, isRed: isRed
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.KlondikeEngine = api;

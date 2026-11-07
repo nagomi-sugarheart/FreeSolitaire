@@ -127,10 +127,78 @@
     sel.onchange = function () { cardStyle = sel.value; save('fs.cardStyle', cardStyle); applyCardStyle(cardStyle); };
   });
 
+  // ---------- score & title ----------
+  // score = 10000 - moves x perMove - seconds x perSec (minimum 100)
+  var SCORE = {
+    k1: { perMove: 20, perSec: 5 },   // Klondike draw 1
+    k3: { perMove: 15, perSec: 5 },   // Klondike draw 3 (more stock turns)
+    fc: { perMove: 35, perSec: 5 }    // FreeCell (fewer moves per game)
+  };
+  var TITLES = [
+    [7500, '名人', '#c8102e'], [6500, '達人', '#d4531c'], [5000, '上級者', '#b8860b'],
+    [3500, '中級者', '#2e7d32'], [2000, '初級者', '#1565c0'], [0, '見習い', '#555']
+  ];
+  function scoreOf(mode, moves, sec) {
+    var k = SCORE[mode];
+    return Math.max(100, Math.round(10000 - moves * k.perMove - sec * k.perSec));
+  }
+  function titleOf(score) {
+    for (var i = 0; i < TITLES.length; i++) if (score >= TITLES[i][0]) return { name: TITLES[i][1], color: TITLES[i][2] };
+  }
+  // fills the win dialog; updates st.bestScore. returns the score
+  function showWin(mode, moves, sec, st, newBestTime) {
+    var score = scoreOf(mode, moves, sec), title = titleOf(score);
+    var newBestScore = !st.bestScore || score > st.bestScore;
+    if (newBestScore) st.bestScore = score;
+    var notes = [];
+    if (newBestScore) notes.push('ベストスコア更新！');
+    if (newBestTime) notes.push('ベストタイム更新！');
+    document.getElementById('winText').innerHTML =
+      '<div class="rank" style="color:' + title.color + '">' + title.name + '！</div>' +
+      '<div class="score">スコア <b>' + score.toLocaleString() + '</b></div>' +
+      '時間 <b>' + fmtTime(sec) + '</b>　手数 <b>' + moves + '</b>' +
+      (notes.length ? '<br><span class="news">' + notes.join('　') + '</span>' : '') +
+      '<br>連勝 ' + st.streak + '　勝利数 ' + st.won + ' / ' + st.played;
+    return score;
+  }
+
+  // ---------- idle glow: after a while without input, highlight cards that can move ----------
+  // getEls() returns the elements to light up (or [] when nothing should glow)
+  function IdleGlow(getEls) {
+    var self = this;
+    this.getEls = getEls; this.timer = null; this.lit = [];
+    this.seconds = +load('fs.idleGlow', 15);   // 0 = off
+    var reset = function () { self.reset(); };
+    document.addEventListener('pointerdown', reset, true);
+    document.addEventListener('keydown', reset, true);
+    document.addEventListener('DOMContentLoaded', function () {
+      var sel = document.getElementById('idleGlow');
+      if (!sel) return;
+      sel.value = String(self.seconds);
+      sel.onchange = function () { self.seconds = +sel.value; save('fs.idleGlow', self.seconds); self.reset(); };
+    });
+    this.reset();
+  }
+  IdleGlow.prototype.clear = function () {
+    this.lit.forEach(function (el) { el.classList.remove('glow'); });
+    this.lit = [];
+  };
+  IdleGlow.prototype.reset = function () {
+    var self = this;
+    this.clear();
+    clearTimeout(this.timer);
+    if (!this.seconds) return;
+    this.timer = setTimeout(function () {
+      if (document.querySelector('dialog[open]')) return self.reset();
+      self.lit = self.getEls() || [];
+      self.lit.forEach(function (el) { el.classList.add('glow'); });
+    }, this.seconds * 1000);
+  };
+
   root.Common = {
     SUITS: SUITS, RANKS: RANKS, rankOf: rankOf, suitOf: suitOf, isRed: isRed,
     load: load, save: save, makeCard: makeCard, setPos: setPos, fmtTime: fmtTime, toast: toast,
     randomSeed: randomSeed, SolverClient: SolverClient, startFx: startFx, stopFx: stopFx,
-    showDialog: showDialog, shake: shake
+    showDialog: showDialog, shake: shake, scoreOf: scoreOf, titleOf: titleOf, showWin: showWin, IdleGlow: IdleGlow
   };
 })(window);
