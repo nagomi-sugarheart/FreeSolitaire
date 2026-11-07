@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>フリーセル - フリーソリティア</title>
 <meta name="description" content="無料で遊べるフリーセル。毎回その場で新しい配置を生成し、すべてクリア可能な配置だけを配ります。">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <header class="bar">
@@ -38,6 +38,15 @@
     </select>
   </div>
   <div class="menu-row">
+    <label for="idleGlow">しばらく操作しないとき、動かせるカードを光らせる</label>
+    <select id="idleGlow">
+      <option value="10">10秒後</option>
+      <option value="15">15秒後</option>
+      <option value="30">30秒後</option>
+      <option value="0">光らせない</option>
+    </select>
+  </div>
+  <div class="menu-row">
     <label for="seedInput">番号を指定して遊ぶ</label>
     <div class="seed-form">
       <input id="seedInput" type="number" min="0" max="4294967295" placeholder="0〜4294967295">
@@ -51,6 +60,7 @@
   </table>
   <h3>遊び方</h3>
   <ul class="help">
+    <li>クリアすると手数と時間からスコアを計算し、称号（見習い・初級者・中級者・上級者・達人・名人）が出ます。少ない手数・短い時間ほど高得点です。</li>
     <li>配置はその場でランダムに生成され、コンピュータが解けることを確認した配置だけが配られます（約43億通り）。</li>
     <li>左上の4つがフリーセル（カードを1枚ずつ置ける場所）、右上が組札です。</li>
     <li>場の列には「数字が1つ小さく、色が違う」カードを重ねられます。空いた列には何でも置けます。</li>
@@ -73,8 +83,8 @@
 </dialog>
 <canvas id="fx"></canvas>
 
-<script src="common.js?v=4"></script>
-<script src="fc-solver.js?v=4"></script>
-<script src="freecell.js?v=4"></script>
+<script src="common.js?v=5"></script>
+<script src="fc-solver.js?v=5"></script>
+<script src="freecell.js?v=5"></script>
 </body>
 </html>

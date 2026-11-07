@@ -10,7 +10,7 @@
 
   var C = window.Common;
   var load = C.load, save = C.save, toast = C.toast, fmtTime = C.fmtTime, setPos = C.setPos, randomSeed = C.randomSeed;
-  var solver = new C.SolverClient('solver.js?v=4', function (msg) {
+  var solver = new C.SolverClient('solver.js?v=5', function (msg) {
     return msg.cmd === 'find' ? S.findWinnable(msg.seed, msg.draw, msg.maxNodes, msg.maxTries) : S.solve(msg.state, msg.draw, msg.maxNodes);
   });
   function runSolver(msg) { return solver.run(msg); }
@@ -248,7 +248,7 @@
     startTimerIfNeeded();
     render();
     if (E.isWon(game)) return onWin();
-    if (E.canAutoFinish(game) && !autoFinishing) autoFinish();
+    tryAutoFinish();
     persist();
   }
 
@@ -283,19 +283,67 @@
     startGame(seed, draw);
   }
 
-  function autoFinish() {
+  // ---------- automatic finish: once every tableau card is face up ----------
+  var FINISH_STEP_MS = 200, FINISH_DRAW_MS = 140;
+  var finishPending = false;
+
+  function tryAutoFinish() {
+    if (autoFinishing || finishPending || finished || !E.allFaceUp(game)) return;
+    if (E.finishWorks(game)) return runFinish([]);
+    // draw 3: foundation moves alone may get stuck, so let the solver plan the rest
+    finishPending = true;
+    var g0 = game, at = game.moves;
+    runSolver({ cmd: 'solve', state: E.toSolverState(game), draw: game.draw, maxNodes: 60000 }).then(function (r) {
+      finishPending = false;
+      if (game !== g0 || game.moves !== at || finished || autoFinishing) return;
+      if (r && r.status === 'win') runFinish(r.moves.slice());
+    });
+  }
+
+  function glide(card) {
+    var el = cardEls[card];
+    el.classList.add('slow');
+    setTimeout(function () { el.classList.remove('slow'); }, 600);
+  }
+
+  // play one solver move on the game (talon moves need the card on top of the waste first)
+  function playPlanned(m) {
+    if ((m.t === 'wf' || m.t === 'wt') && game.waste[game.waste.length - 1] !== m.card) { E.drawStock(game); return 'draw'; }
+    if (m.t === 'tf') E.doMove(game, { type: 'tab', col: m.from, idx: game.tab[m.from].length - 1 }, { type: 'fnd' });
+    else if (m.t === 'tt') E.doMove(game, { type: 'tab', col: m.from, idx: m.idx }, { type: 'tab', col: m.to });
+    else if (m.t === 'wf') E.doMove(game, { type: 'waste' }, { type: 'fnd' });
+    else if (m.t === 'wt') E.doMove(game, { type: 'waste' }, { type: 'tab', col: m.to });
+    else if (m.t === 'ft') E.doMove(game, { type: 'fnd', suit: m.suit }, { type: 'tab', col: m.to });
+    glide(m.card);
+    return 'move';
+  }
+
+  function runFinish(plan) {
     autoFinishing = true;
+    timerOn = false;              // the clock stops: the rest is automatic
+    var movesAt = game.moves;     // automatic moves are not counted
+    toast('裏向きのカードがなくなったので、自動で組札へ移動します');
     (function step() {
       if (!autoFinishing) return;
-      var mv = E.nextFinishMove(game);
-      if (!mv) { autoFinishing = false; return; }
+      var kind;
       snapshot();
-      E.doMove(game, mv, { type: 'fnd' });
+      if (plan.length) {
+        kind = playPlanned(plan[0]);
+        if (kind === 'move') plan.shift();
+      } else {
+        var st = E.finishStep(game);
+        if (!st) { history.pop(); autoFinishing = false; return; }
+        if (st.kind === 'draw') { E.drawStock(game); kind = 'draw'; }
+        else { var card = E.cardsAt(game, st.src)[0]; E.doMove(game, st.src, { type: 'fnd' }); glide(card); kind = 'move'; }
+      }
+      game.moves = movesAt;
       render();
       if (E.isWon(game)) { autoFinishing = false; return onWin(); }
-      setTimeout(step, 90);
+      setTimeout(step, kind === 'draw' ? FINISH_DRAW_MS : FINISH_STEP_MS);
     })();
   }
+
+
 
   function onWin() {
     finished = true; timerOn = false;
@@ -309,9 +357,8 @@
     save('fs.stats', stats);
     save('fs.current', null);
     render();
-    $('winText').innerHTML = '時間 <b>' + fmtTime(t) + '</b>　手数 <b>' + game.moves + '</b>' +
-      (newBest ? '<br>ベストタイム更新！' : '') +
-      '<br>連勝 ' + st.streak + '　勝利数 ' + st.won + ' / ' + st.played;
+    C.showWin(game.draw === 3 ? 'k3' : 'k1', game.moves, t, st, newBest);
+    save('fs.stats', stats);
     C.startFx();
     setTimeout(function () { C.showDialog('winDlg'); }, 900);
   }
@@ -468,7 +515,8 @@
       row('現在の連勝', function (s) { return s.streak; }) +
       row('最高連勝', function (s) { return s.best; }) +
       row('ベストタイム', function (s) { return s.bestTime === null ? '-' : fmtTime(s.bestTime); }) +
-      row('最少手数', function (s) { return s.bestMoves === null ? '-' : s.bestMoves; });
+      row('最少手数', function (s) { return s.bestMoves === null ? '-' : s.bestMoves; }) +
+      row('ベストスコア', function (s) { return s.bestScore ? s.bestScore.toLocaleString() + '（' + C.titleOf(s.bestScore).name + '）' : '-'; });
   }
 
   // ---------- wiring ----------
@@ -516,6 +564,32 @@
     resizeT = setTimeout(function () { layout(); if (game) render(); }, 60);
   });
 
+  // ---------- idle glow ----------
+  function movableEls() {
+    if (!game || finished || autoFinishing || busy) return [];
+    var out = [], i, j;
+    var dests = function (src) {
+      if (E.canMove(game, src, { type: 'fnd' }) && E.cardsAt(game, src).length === 1) return true;
+      for (var k = 0; k < 7; k++) {
+        if (src.type === 'tab' && k === src.col) continue;
+        // a king that already sits at the bottom of a column gains nothing from moving to an empty one
+        if (!game.tab[k].length && src.type === 'tab' && src.idx === 0) continue;
+        if (E.canMove(game, src, { type: 'tab', col: k })) return true;
+      }
+      return false;
+    };
+    for (i = 0; i < 7; i++) {
+      for (j = game.hid[i]; j < game.tab[i].length; j++) {
+        if (dests({ type: 'tab', col: i, idx: j })) { out.push(cardEls[game.tab[i][j]]); break; }
+      }
+    }
+    if (game.waste.length && dests({ type: 'waste' })) out.push(cardEls[game.waste[game.waste.length - 1]]);
+    // nothing to move on the table: suggest turning the stock
+    if (!out.length && (game.stock.length || game.waste.length)) out.push(game.stock.length ? cardEls[game.stock[game.stock.length - 1]] : slots.stock);
+    return out;
+  }
+  var idle = new C.IdleGlow(movableEls);
+
   // ---------- boot ----------
   layout();
   buildDom();
@@ -525,6 +599,7 @@
     started = !!saved.started; finished = false;
     if (started) { timerOn = true; lastTick = Date.now(); }
     render();
+    tryAutoFinish();
     doPrefetch(settings.draw);
   } else {
     newGame();

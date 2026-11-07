@@ -8,7 +8,7 @@
   var board = $('board');
   var rankOf = F.rankOf, suitOf = F.suitOf;
 
-  var solver = new C.SolverClient('fc-solver.js?v=4', function (msg) {
+  var solver = new C.SolverClient('fc-solver.js?v=5', function (msg) {
     return msg.cmd === 'find' ? F.findWinnable(msg.seed, msg.maxNodes, msg.maxTries) : F.solve(msg.state, msg.maxNodes);
   });
   function findDeal(seed) { return solver.run({ cmd: 'find', seed: seed, maxNodes: GEN_NODES, maxTries: 200 }); }
@@ -243,6 +243,8 @@
 
   function autoFinish() {
     autoFinishing = true;
+    timerOn = false;              // the clock stops: the rest is automatic
+    var movesAt = game.moves;     // automatic moves are not counted
     (function step() {
       if (!autoFinishing) return;
       var best = null, br = 99;
@@ -254,6 +256,7 @@
       if (!best) { autoFinishing = false; return; }
       var card = best.type === 'cell' ? game.cells[best.cell] : game.cols[best.col][best.idx];
       applyMove(best, { type: 'fnd' });
+      game.moves = movesAt;
       glide(card);
       render();
       if (F.isWon(game)) { autoFinishing = false; return onWin(); }
@@ -272,8 +275,8 @@
     save('fc.stats', stats);
     save('fc.current', null);
     render();
-    $('winText').innerHTML = '時間 <b>' + fmtTime(t) + '</b>　手数 <b>' + game.moves + '</b>' +
-      (newBest ? '<br>ベストタイム更新！' : '') + '<br>連勝 ' + stats.streak + '　勝利数 ' + stats.won + ' / ' + stats.played;
+    C.showWin('fc', game.moves, t, stats, newBest);
+    save('fc.stats', stats);
     C.startFx();
     setTimeout(function () { C.showDialog('winDlg'); }, 900);
   }
@@ -456,7 +459,8 @@
       row('勝率', s.played ? Math.round(s.won / s.played * 100) + '%' : '-') +
       row('現在の連勝', s.streak) + row('最高連勝', s.best) +
       row('ベストタイム', s.bestTime === null ? '-' : fmtTime(s.bestTime)) +
-      row('最少手数', s.bestMoves === null ? '-' : s.bestMoves);
+      row('最少手数', s.bestMoves === null ? '-' : s.bestMoves) +
+      row('ベストスコア', s.bestScore ? s.bestScore.toLocaleString() + '（' + C.titleOf(s.bestScore).name + '）' : '-');
   }
 
   $('btnNew').onclick = function () { newGame(); };
@@ -494,6 +498,30 @@
     clearTimeout(resizeT);
     resizeT = setTimeout(function () { layout(); if (game) render(); }, 60);
   });
+
+  // ---------- idle glow ----------
+  function movableEls() {
+    if (!game || finished || autoFinishing || busy || autoTimer) return [];
+    var out = [], i, j;
+    var useful = function (src) {
+      if (cardsOf(src).length === 1 && !checkMove(src, { type: 'fnd' })) return true;
+      for (var k = 0; k < 8; k++) {
+        if (src.type === 'col' && (k === src.col || (!game.cols[k].length && src.idx === 0))) continue;
+        if (!checkMove(src, { type: 'col', col: k })) return true;
+      }
+      return false;
+    };
+    for (i = 0; i < 4; i++) if (game.cells[i] >= 0 && useful({ type: 'cell', cell: i })) out.push(cardEls[game.cells[i]]);
+    for (i = 0; i < 8; i++) {
+      var col = game.cols[i];
+      for (j = 0; j < col.length; j++) {
+        var c = col[j], src = sourceOf(c);
+        if (src && useful(src)) { out.push(cardEls[c]); break; }
+      }
+    }
+    return out;
+  }
+  var idle = new C.IdleGlow(movableEls);
 
   // ---------- boot ----------
   layout();
